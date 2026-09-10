@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學生端監控狀態</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f6f9;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 20px;
+            margin-top: 15px;
+        }
+        .online { background-color: #e6f4ea; color: #137333; }
+        .offline { background-color: #fce8e6; color: #c5221f; }
+        .btn {
+            margin-top: 20px;
+            padding: 10px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #1a73e8;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover { background-color: #1557b0; }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        .hint { margin-top: 20px; font-size: 13px; color: #666; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>學生端監控狀態</h2>
+    <p>背景模組連線情形：</p>
+    <div id="status-badge" class="status-badge offline">檢查中...</div>
+    
+    <div style="margin-top: 10px;">
+        <button id="start-btn" class="btn" onclick="startMonitoring()" disabled>開始上課監控</button>
+    </div>
+
+    <div id="msg" style="margin-top: 10px; color: #137333; font-weight: bold;"></div>
+
+    <div class="hint">
+        <strong>提示：</strong> 連線成功後，請點擊「開始上課監控」連線至課堂中控台。
+    </div>
+</div>
+
+<script>
+    async function checkAgentStatus() {
+        const badge = document.getElementById('status-badge');
+        const btn = document.getElementById('start-btn');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
+
+        try {
+            const response = await fetch('http://127.0.0.1:18000/status', {
+                method: 'GET',
+                signal: controller.signal,
+                headers: { 'Accept': 'application/json' }
+            });
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+                const data = await response.json();
+                badge.innerText = "● 監控模組運作中";
+                badge.className = "status-badge online";
+                
+                if (data.is_monitoring) {
+                    btn.innerText = "監控進行中";
+                    btn.disabled = true;
+                } else {
+                    btn.disabled = false;
+                }
+            } else { throw new Error(); }
+        } catch (error) {
+            badge.innerText = "X 未偵測到 StudentAgent.exe";
+            badge.className = "status-badge offline";
+            btn.disabled = true;
+        }
+    }
+
+    async function startMonitoring() {
+        const btn = document.getElementById('start-btn');
+        const msg = document.getElementById('msg');
+        try {
+            const res = await fetch('http://127.0.0.1:18000/start_monitoring', { 
+                method: 'POST' 
+            });
+            
+            if (res.ok) {
+                msg.innerText = "已順利連線並啟動監控！";
+                btn.innerText = "監控進行中";
+                btn.disabled = true;
+            } else {
+                throw new Error();
+            }
+        } catch (e) {
+            alert("啟動失敗，請重新確認 StudentAgent.exe 狀態");
+        }
+    }
+
+    setInterval(checkAgentStatus, 2500);
+    checkAgentStatus();
+</script>
+
+</body>
+</html>

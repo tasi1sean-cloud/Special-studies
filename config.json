@@ -1,0 +1,7 @@
+{
+  "student_id": "STU_01",
+  "student_name": "金大帥",
+  "mqtt_broker": "127.0.0.1",
+  "mqtt_port": 1883,
+  "heartbeat_interval": 10
+}

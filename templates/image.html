@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ name }} 事件截圖</title>
+    <style>
+        body { background-color: #1a1d28; color: white; font-family: sans-serif; text-align: center; padding: 40px; margin: 0; }
+        .card { background: #252a3a; display: inline-block; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        img { max-width: 600px; width: 100%; border-radius: 8px; border: 2px solid #5ac8fa; margin-top: 15px; }
+        button { padding: 10px 20px; background: #5ac8fa; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 20px; }
+        button:hover { opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>{{ name }} 事件截圖</h2>
+        
+        <!-- 讀取 static/event/學生ID.jpg -->
+        <img src="/static/event/{{ name }}.jpg" alt="尚無抓拍照片或圖片載入中...">
+        
+        <br>
+        <button onclick="window.close()">關閉視窗</button>
+    </div>
+</body>
+</html>

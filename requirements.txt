@@ -1,0 +1,7 @@
+fastapi>=0.100.0
+uvicorn>=0.22.0
+opencv-python>=4.8.0.74
+paho-mqtt>=1.6.1,<2.0.0
+pynput>=1.7.6
+pywin32>=306
+pyinstaller>=6.0.0

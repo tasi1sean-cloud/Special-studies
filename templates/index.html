@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>智慧教學中控台</title>
+    <style>
+        body { background-color: #1a1d28; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+        .container { width: 85%; margin: 20px auto; background: #252a3a; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; border-bottom: 1px solid #3a3f55; text-align: center; }
+        th { background-color: #2c3246; }
+        input[type="text"] { padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; width: 250px; }
+        button { padding: 8px 16px; background: #5ac8fa; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 5px; }
+        button:hover { opacity: 0.9; }
+        .btn-exe { background: #ffcc00; color: black; }
+    </style>
+</head>
+<body>
+    <h1>智慧教學中控台</h1>
+
+    <div class="container">
+        <h3>管理控制區</h3>
+        <input type="text" id="keywordInput" placeholder="輸入允許的網頁關鍵字 (逗號隔開)">
+        <button onclick="sendRules()">發送新規則至全班</button>
+        <button onclick="buildExe()" class="btn-exe">生成學生端 EXE</button>
+    </div>
+
+    <div class="container">
+        <table>
+            <thead>
+                <tr>
+                    <th>學生 ID</th>
+                    <th>人臉狀態</th>
+                    <th>視窗狀態</th>
+                    <th>閒置秒數</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="student-table-body">
+                {% for sid, data in students %}
+                <tr id="student-row-{{ sid }}">
+                    <td>{{ sid }}</td>
+                    <td class="face-status">{{ data.face_status }}</td>
+                    <td class="window-status">{{ data.window_status }}</td>
+                    <td class="idle-time">{{ data.idle_time }} 秒</td>
+                    <td><button onclick="viewSnap('{{ sid }}')">查看截圖</button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function fetchStudentUpdates() {
+            fetch('/api/get_students?t=' + new Date().getTime())
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('student-table-body');
+
+                    for (let sid in data) {
+                        let student = data[sid];
+                        let row = document.getElementById(`student-row-${sid}`);
+
+                        if (!row) {
+                            row = document.createElement('tr');
+                            row.id = `student-row-${sid}`;
+                            row.innerHTML = `
+                                <td>${sid}</td>
+                                <td class="face-status"></td>
+                                <td class="window-status"></td>
+                                <td class="idle-time"></td>
+                                <td><button onclick="viewSnap('${sid}')">查看截圖</button></td>
+                            `;
+                            tbody.appendChild(row);
+                        }
+
+                        row.querySelector('.face-status').innerText = student.face_status;
+                        row.querySelector('.window-status').innerText = student.window_status;
+                        row.querySelector('.idle-time').innerText = student.idle_time + ' 秒';
+                    }
+                })
+                .catch(err => console.error("數據更新失敗:", err));
+        }
+
+        setInterval(fetchStudentUpdates, 1000);
+
+        function sendRules() {
+            let kw = document.getElementById('keywordInput').value.split(',').map(s => s.trim());
+            fetch('/update_rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keywords: kw })
+            }).then(res => res.json()).then(d => alert(d.msg));
+        }
+
+        function buildExe() {
+            fetch('/build_exe', { method: 'POST' })
+                .then(res => res.json())
+                .then(d => alert(d.msg));
+        }
+
+        // 修改：跳轉至 Flask 路由網址
+        function viewSnap(sid) {
+            window.open(`/image/${sid}`, '_blank');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>學生端監控啟動器</title>
+    <style>
+        body {
+            background-color: #f0f2f5;
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #28a745;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 15px;
+            width: 100%;
+        }
+        button:hover { background-color: #218838; }
+        #statusMsg { margin-top: 15px; font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>學生端狀態檢測</h2>
+        <p>點擊下方按鈕以啟動背景監控 Agent 並確認連線狀態。</p>
+        <button onclick="startAgent()">啟動並確認連線</button>
+        <div id="statusMsg"></div>
+    </div>
+
+    <script>
+        function startAgent() {
+            const statusDiv = document.getElementById('statusMsg');
+            statusDiv.innerText = "正在連線至背景 Agent...";
+            statusDiv.style.color = "#555";
+
+            // 發送請求給 student_agent.py 背景運行的 FastAPI (Port 18000)
+            fetch('http://127.0.0.1:18000/start_monitoring', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                statusDiv.innerText = "連線成功！背景監控運作中。";
+                statusDiv.style.color = "green";
+            })
+            .catch(err => {
+                console.error(err);
+                statusDiv.innerText = "連線失敗！請確認 student_agent.py 是否已執行。";
+                statusDiv.style.color = "red";
+            });
+        }
+    </script>
+</body>
+</html>
