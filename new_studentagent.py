@@ -4,22 +4,26 @@ import threading
 import win32gui
 import uvicorn
 import logging
+import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pynput import mouse, keyboard
 import paho.mqtt.client as mqtt
 
-# ================= 檔案日誌設定 =================
+# ================= 檔案與控制台雙向日誌設定 =================
 logging.basicConfig(
-    filename='agent_debug.log',
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler('agent_debug.log', encoding='utf-8'),
+        logging.StreamHandler(sys.stdout) # 同步印在 Terminal，方便實時除錯
+    ]
 )
-logging.info("=== StudentAgent 啟動（單純每秒回傳閒置秒數版） ===")
+logging.info("=== StudentAgent 啟動（即時 Debug 版） ===")
 
 # ================= 基礎設定 =================
 STUDENT_ID = "STU_01" 
-MQTT_BROKER = "192.168.0.125"  # 若跨電腦測試，請改為教師端 LAN IP (如 192.168.x.x)
+MQTT_BROKER = "127.0.0.1"  # 若跨電腦測試，請改為教師端 LAN IP (如 192.168.x.x)
 MQTT_PORT = 1883
 
 current_keywords = ["google", "class", "math"]
@@ -36,12 +40,12 @@ def on_activity(*args, **kwargs):
 mouse.Listener(on_move=on_activity, on_click=on_activity, on_scroll=on_activity).start()
 keyboard.Listener(on_press=on_activity).start()
 
-# ================= MQTT 設定 =================
+# ================= MQTT 設定 (相容 paho-mqtt v2) =================
 mqtt_connected = False
 
-def on_connect(client, userdata, flags, rc):
+def on_connect(client, userdata, flags, rc, properties=None):
     global mqtt_connected
-    if rc == 0:
+    if rc == 0 or (hasattr(rc, 'is_failure') and not rc.is_failure):
         mqtt_connected = True
         logging.info("【MQTT】伺服器連線成功！")
         client.subscribe("student/monitor/cmd/all")
@@ -59,7 +63,8 @@ def on_mqtt_message(client, userdata, msg):
     except Exception as e:
         logging.error(f"【規則更新失敗】解析 Payload 錯誤: {e}")
 
-mqtt_client = mqtt.Client()
+# 指定 VERSION2 消除 DeprecationWarning 警告
+mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 mqtt_client.on_connect = on_connect
 mqtt_client.on_message = on_mqtt_message
 
@@ -112,15 +117,17 @@ def main_loop():
                 now_time = time.time()
                 idle_sec = int(now_time - last_input_time)
 
-                # ---------------- 1. 每秒固定發送閒置秒數 (classroom/event/idle) ----------------
+                # ---------------- 1. 每秒發送閒置秒數 (classroom/event/mouse) ----------------
                 idle_payload = {
                     "id": STUDENT_ID,
-                    "idle_time": idle_sec
+                    "idle_seconds": idle_sec,
+                    "timestamp": int(time.time())  # 補上 UNIX 時間戳
                 }
                 if mqtt_connected:
-                    mqtt_client.publish("classroom/event/idle", json.dumps(idle_payload))
+                    mqtt_client.publish("classroom/event/mouse", json.dumps(idle_payload))
+                    logging.info(f"[PUB mouse] {idle_payload}")
 
-                # ---------------- 2. 當前焦點視窗判斷 (classroom/event/window) ----------------
+                # ---------------- 2. 焦點視窗判斷 (classroom/event/window) ----------------
                 raw_title = ""
                 is_on_task = False
                 try:
@@ -129,7 +136,7 @@ def main_loop():
                     title_lower = raw_title.lower().strip()
                     class_name = win32gui.GetClassName(hwnd).lower()
 
-                    # 過濾檔案總管與記事本防刷 Bug
+                    # 過濾檔案總管與記事本
                     is_fake_window = any(fake in class_name for fake in ["cabinetwclass", "notepad", "workerw"])
 
                     if is_fake_window:
@@ -141,23 +148,23 @@ def main_loop():
                 except Exception as e:
                     window_status = "未知"
 
-                # 視窗狀態改變 OR 首次發送 OR 每 2 秒心跳
+                # 視窗狀態改變 OR 首次發送 OR 每 2 秒心跳發送
                 if (window_status != last_window_status) or first_send or (now_time - last_window_send_time > 2):
                     window_payload = {
                         "id": STUDENT_ID,
                         "window_status": window_status,
-                        "raw_title": raw_title
+                        "raw_title": raw_title,
+                        "timestamp": int(time.time())  # 補上 UNIX 時間戳
                     }
                     if mqtt_connected:
                         mqtt_client.publish("classroom/event/window", json.dumps(window_payload))
-                        logging.info(f"【視窗事件】狀態: {window_status} | 標題: '{raw_title}'")
+                        logging.info(f"[PUB window] Status: {window_status} | Title: '{raw_title}'")
                     last_window_status = window_status
                     last_window_send_time = now_time
 
                 if first_send:
                     first_send = False
 
-            # 主迴圈精準控制在每 1 秒發送一次 idle 事件
             time.sleep(1.0)
         except Exception as e:
             logging.error(f"Main loop 未預期錯誤: {e}")
