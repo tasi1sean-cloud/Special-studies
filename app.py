@@ -26,32 +26,61 @@ def on_connect(client, userdata, flags, rc, properties=None):
 def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode('utf-8'))
+
         student_id = data.get("id", "Unknown")
         face_status = data.get("face_status", "未知")
+        eye_status = data.get("eye_status", "未知")
+        gaze_status = data.get("gaze_status", "未知")
+        yawn_status = data.get("yawn_status", "未知")
         window_status = data.get("window_status", "未知")
         idle_time = data.get("idle_time", 0)
 
         # 更新記憶體資料
         students_data[student_id] = {
             "face_status": face_status,
+            "eye_status": eye_status,
+            "gaze_status": gaze_status,
+            "yawn_status": yawn_status,
             "window_status": window_status,
             "idle_time": idle_time
         }
-        
-        print(f"[收到 MQTT 訊息] 學生: {student_id} | 人臉: {face_status} | 視窗: {window_status} | 閒置: {idle_time}s")
+
+        print(
+            f"[收到 MQTT 訊息] "
+            f"學生: {student_id} | "
+            f"人臉: {face_status} | "
+            f"眼睛: {eye_status} | "
+            f"視線: {gaze_status} | "
+            f"哈欠: {yawn_status} | "
+            f"視窗: {window_status} | "
+            f"閒置: {idle_time}s"
+        )
 
         # 處理 Base64 影像並寫入 static/event/{student_id}.jpg
         if "image" in data and data["image"]:
             try:
                 img_data = base64.b64decode(data["image"])
-                os.makedirs("static/event", exist_ok=True)
-                with open(f"static/event/{student_id}.jpg", "wb") as f:
+
+                os.makedirs(
+                    "static/event",
+                    exist_ok=True
+                )
+
+                with open(
+                    f"static/event/{student_id}.jpg",
+                    "wb"
+                ) as f:
                     f.write(img_data)
+
             except Exception as img_err:
-                print(f"[圖片儲存失敗] {img_err}")
+                print(
+                    f"[圖片儲存失敗] {img_err}"
+                )
 
     except Exception as e:
-        print(f"[MQTT 解析錯誤] {e}")
+        print(
+            f"[MQTT 解析錯誤] {e}"
+        )
 
 # 相容新舊版 paho-mqtt 初始化
 try:
